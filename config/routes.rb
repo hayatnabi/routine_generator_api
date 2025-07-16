@@ -3,6 +3,7 @@ Rails.application.routes.draw do
   namespace :api do
     namespace :v1 do
       post 'routines/generate', to: 'routines#generate'
+      get  'routines/export',   to: 'routines#export'
     end
   end
   # Reveal health status on /up that returns 200 if the app boots with no exceptions, otherwise 500.

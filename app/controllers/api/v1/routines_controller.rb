@@ -5,14 +5,15 @@ class Api::V1::RoutinesController < ApplicationController
     focus_hours = params[:focus_hours].to_i
     goals = params[:goals] || []
     productivity_type = params[:productivity_type] || "balanced"
-
+    
     total_hours = ((sleep_time - wake_time) / 3600).to_i
-
+    
     morning_routine = generate_morning_routine(productivity_type)
     work_blocks = generate_work_blocks(wake_time, focus_hours, productivity_type)
     evening_routine = generate_evening_routine(sleep_time, productivity_type)
-
-    render json: {
+    
+    # ✅ Store the routine in session for export
+    session[:routine_data] = {
       wake_time: wake_time.strftime("%H:%M"),
       sleep_time: sleep_time.strftime("%H:%M"),
       productivity_type: productivity_type,
@@ -23,6 +24,58 @@ class Api::V1::RoutinesController < ApplicationController
         evening: evening_routine
       }
     }
+  
+    render json: session[:routine_data]
+  end
+
+  def export
+    routine = session[:routine_data]
+  
+    return render json: { error: "No routine to export" }, status: :not_found unless routine
+    
+    respond_to do |format|
+      format.pdf do
+        pdf = Prawn::Document.new
+        pdf.text "Routine Plan", size: 24, style: :bold
+        pdf.move_down 10
+  
+        pdf.text "Wake Time: #{routine[:wake_time]}"
+        pdf.text "Sleep Time: #{routine[:sleep_time]}"
+        pdf.text "Productivity Type: #{routine[:productivity_type]}"
+        pdf.move_down 10
+  
+        pdf.text "Goals:", style: :bold
+        routine[:goals].each_with_index do |goal, index|
+          pdf.text "#{index + 1}. #{goal}"
+        end
+  
+        %i[morning work_blocks evening].each do |section|
+          pdf.move_down 10
+          pdf.text "#{section.to_s.titleize}:", style: :bold
+          routine[:routine][section].each do |item|
+            label = item[:time] || item[:block]
+            pdf.text "#{label}: #{item[:duration]}"
+          end
+        end
+  
+        send_data pdf.render, filename: "routine.pdf", type: "application/pdf", disposition: "attachment"
+      end
+  
+      format.csv do
+        csv_data = CSV.generate(headers: true) do |csv|
+          csv << ["Section", "Label", "Duration"]
+  
+          %i[morning work_blocks evening].each do |section|
+            routine[:routine][section].each do |item|
+              label = item[:time] || item[:block]
+              csv << [section.to_s.titleize, label, item[:duration]]
+            end
+          end
+        end
+  
+        send_data csv_data, filename: "routine.csv", type: "text/csv", disposition: "attachment"
+      end
+    end
   end
 
   private

@@ -20,6 +20,8 @@ Bundler.require(*Rails.groups)
 
 module RoutineGeneratorApi
   class Application < Rails::Application
+    config.middleware.use ActionDispatch::Session::CookieStore
+    config.middleware.use ActionDispatch::Session::CookieStore, key: '_routine_api_session'
     # Initialize configuration defaults for originally generated Rails version.
     config.load_defaults 8.0
 
