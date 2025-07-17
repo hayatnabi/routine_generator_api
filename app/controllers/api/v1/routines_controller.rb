@@ -1,4 +1,6 @@
 class Api::V1::RoutinesController < ApplicationController
+  include ActionController::MimeResponds
+
   def generate
     wake_time = Time.parse(params[:wake_time])
     sleep_time = Time.parse(params[:sleep_time])
@@ -24,14 +26,14 @@ class Api::V1::RoutinesController < ApplicationController
         evening: evening_routine
       }
     }
+
+    @@routine = session[:routine_data]
   
-    render json: session[:routine_data]
+    render json: @@routine
   end
 
   def export
-    routine = session[:routine_data]
-  
-    return render json: { error: "No routine to export" }, status: :not_found unless routine
+    return render json: { error: "No routine to export" }, status: :not_found unless @@routine
     
     respond_to do |format|
       format.pdf do
@@ -39,20 +41,20 @@ class Api::V1::RoutinesController < ApplicationController
         pdf.text "Routine Plan", size: 24, style: :bold
         pdf.move_down 10
   
-        pdf.text "Wake Time: #{routine[:wake_time]}"
-        pdf.text "Sleep Time: #{routine[:sleep_time]}"
-        pdf.text "Productivity Type: #{routine[:productivity_type]}"
+        pdf.text "Wake Time: #{@@routine[:wake_time]}"
+        pdf.text "Sleep Time: #{@@routine[:sleep_time]}"
+        pdf.text "Productivity Type: #{@@routine[:productivity_type]}"
         pdf.move_down 10
   
         pdf.text "Goals:", style: :bold
-        routine[:goals].each_with_index do |goal, index|
+        @@routine[:goals].each_with_index do |goal, index|
           pdf.text "#{index + 1}. #{goal}"
         end
   
         %i[morning work_blocks evening].each do |section|
           pdf.move_down 10
           pdf.text "#{section.to_s.titleize}:", style: :bold
-          routine[:routine][section].each do |item|
+          @@routine[:routine][section].each do |item|
             label = item[:time] || item[:block]
             pdf.text "#{label}: #{item[:duration]}"
           end
@@ -66,7 +68,7 @@ class Api::V1::RoutinesController < ApplicationController
           csv << ["Section", "Label", "Duration"]
   
           %i[morning work_blocks evening].each do |section|
-            routine[:routine][section].each do |item|
+            @@routine[:routine][section].each do |item|
               label = item[:time] || item[:block]
               csv << [section.to_s.titleize, label, item[:duration]]
             end
